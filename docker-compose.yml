@@ -1,0 +1,339 @@
+# Docker网络隔离
+# proxy_network: 对外服务网络
+# backend_network: 数据库内部网络，不允许外部访问
+
+name: ${COMPOSE_PROJECT_NAME}
+
+networks:
+  proxy_network:
+    name: proxy_network
+    driver: bridge
+
+  backend_network:
+    name: backend_network
+    driver: bridge
+    internal: true
+
+
+services:
+
+  # =====================================
+  # PostgreSQL 数据库
+  # 仅供内部服务访问
+  # =====================================
+  postgres:
+    container_name: postgres
+    image: postgres:15-bookworm
+    restart: unless-stopped
+
+    init: true
+    security_opt:
+      - no-new-privileges:true
+
+    environment:
+      TZ: ${TZ}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+
+   # 只绑定本地，不暴露公网，开发机器可通过dbeaver等连接数据库
+    ports:
+      - "127.0.0.1:5432:5432" 
+    volumes:
+      - ./appdata/postgres/data:/var/lib/postgresql/data
+
+    networks:
+      - backend_network
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    stop_grace_period: 120s
+
+    # PostgreSQL共享内存
+    shm_size: 256m
+
+    mem_limit: 512m
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+
+  # =====================================
+  # Gitea数据库初始化
+  # 自动创建独立数据库和用户
+  # =====================================
+  gitea-db-init:
+    container_name: gitea-db-init
+    image: postgres:15-bookworm
+
+    restart: "no"
+
+    init: true
+
+    environment:
+      TZ: ${TZ}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+
+    networks:
+      - backend_network
+
+
+    command: >
+      sh -c "
+      echo 'Waiting PostgreSQL...';
+
+      until pg_isready -h postgres -U ${POSTGRES_USER};
+      do sleep 2;
+      done;
+
+      echo 'Creating Gitea database...';
+
+      psql -h postgres -U ${POSTGRES_USER}
+      -tc \"SELECT 1 FROM pg_database WHERE datname='${GITEA_DB_NAME}'\"
+      | grep -q 1 ||
+      psql -h postgres -U ${POSTGRES_USER}
+      -c \"CREATE DATABASE ${GITEA_DB_NAME}\";
+
+
+      psql -h postgres -U ${POSTGRES_USER}
+      -tc \"SELECT 1 FROM pg_roles WHERE rolname='${GITEA_DB_USER}'\"
+      | grep -q 1 ||
+      psql -h postgres -U ${POSTGRES_USER}
+      -c \"CREATE USER ${GITEA_DB_USER} PASSWORD '${GITEA_DB_PASSWORD}'\";
+
+
+      psql -h postgres -U ${POSTGRES_USER}
+      -c \"GRANT ALL PRIVILEGES ON DATABASE ${GITEA_DB_NAME} TO ${GITEA_DB_USER}\";
+
+
+      echo 'Gitea database ready';
+      "
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+
+  # =====================================
+  # Gitea Git代码托管服务
+  # =====================================
+  gitea:
+    container_name: gitea
+
+    image: gitea/gitea:1.27.0
+
+    restart: unless-stopped
+
+    init: true
+
+    security_opt:
+      - no-new-privileges:true
+
+
+    environment:
+
+      TZ: ${TZ}
+
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: postgres:5432
+      GITEA__database__NAME: ${GITEA_DB_NAME}
+      GITEA__database__USER: ${GITEA_DB_USER}
+      GITEA__database__PASSWD: ${GITEA_DB_PASSWORD}
+
+
+      # 网站访问地址
+      GITEA__server__DOMAIN: ${GITEA_DOMAIN}
+      GITEA__server__ROOT_URL: https://${GITEA_DOMAIN}
+
+
+      # SSH Git访问
+      GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
+      GITEA__server__SSH_LISTEN_PORT: 22
+      GITEA__server__HTTP_PORT: 3000
+
+      # 首次启动创建管理员
+      GITEA_ADMIN_USER: ${GITEA_ADMIN_USER}
+      GITEA_ADMIN_PASSWD: ${GITEA_ADMIN_PASSWORD}
+      GITEA_ADMIN_EMAIL: ${GITEA_ADMIN_EMAIL}
+
+    ports:
+      # Git SSH访问
+      - "${GITEA_SSH_PORT}:22"
+
+    volumes:
+      - ./appdata/gitea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+    networks:
+      - proxy_network
+      - backend_network
+
+    depends_on:
+      gitea-db-init:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO",
+          "/dev/null",
+          "http://localhost:3000/api/health"
+        ]
+
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    stop_grace_period: 60s
+
+    mem_limit: 512m
+
+
+  # =====================================
+  # Nginx Proxy Manager
+  # 唯一公网HTTP/HTTPS入口
+  # =====================================
+  npm:
+    container_name: npm
+
+    image: jc21/nginx-proxy-manager:2.15.1
+
+    restart: unless-stopped
+
+    init: true
+
+    security_opt:
+      - no-new-privileges:true
+
+    environment:
+      TZ: ${TZ}
+
+    ports:
+
+      # Web入口
+      - "${NPM_HTTP_PORT}:80"
+      - "${NPM_HTTPS_PORT}:443"
+
+      # 管理后台只允许本机访问
+      - "127.0.0.1:${NPM_ADMIN_PORT}:81"
+
+    volumes:
+      - ./appdata/npm/data:/data
+      - ./appdata/npm/letsencrypt:/etc/letsencrypt
+
+    networks:
+      - proxy_network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO",
+          "/dev/null",
+          "http://localhost:81/"
+        ]
+
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    mem_limit: 256m
+
+
+  # =====================================
+  # Web版VS Code
+  # =====================================
+  code-server:
+
+    container_name: code-server
+
+    image: codercom/code-server:4.129.0
+
+    restart: unless-stopped
+
+    init: true
+
+    security_opt:
+      - no-new-privileges:true
+
+    environment:
+      TZ: ${TZ}
+      PASSWORD: ${CODE_SERVER_PASSWORD}
+
+    # 避免root创建文件
+    user: "1000:1000"
+
+    volumes:
+      - ./appdata/code-server/config:/home/coder/.config
+      - ./data/workspace:/home/coder/project
+
+    networks:
+      - proxy_network
+
+    healthcheck:
+
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO",
+          "/dev/null",
+          "http://localhost:8080/"
+        ]
+
+      interval:30s
+      timeout:10s
+      retries:3
+
+    mem_limit:512m
+
+
+  # =====================================
+  # 默认欢迎页
+  # =====================================
+  welcome:
+
+    container_name: welcome
+
+    image: nginx:stable-alpine
+
+    restart: unless-stopped
+
+    init:true
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only:true
+
+    tmpfs:
+      - /var/run:uid=101,gid=101
+      - /var/cache/nginx:uid=101,gid=101
+      - /tmp
+
+    volumes:
+      - ./welcome/index.html:/usr/share/nginx/html/index.html:ro
+
+    networks:
+      - proxy_network
+
+    mem_limit:64m
