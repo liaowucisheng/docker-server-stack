@@ -300,11 +300,11 @@ services:
           "http://localhost:8080/"
         ]
 
-      interval:30s
-      timeout:10s
-      retries:3
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-    mem_limit:512m
+    mem_limit: 512m
 
 
   # =====================================
@@ -318,12 +318,12 @@ services:
 
     restart: unless-stopped
 
-    init:true
+    init: true
 
     security_opt:
       - no-new-privileges:true
 
-    read_only:true
+    read_only: true
 
     tmpfs:
       - /var/run:uid=101,gid=101
@@ -336,4 +336,4 @@ services:
     networks:
       - proxy_network
 
-    mem_limit:64m
+    mem_limit: 64m
