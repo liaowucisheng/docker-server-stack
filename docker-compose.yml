@@ -223,6 +223,7 @@ services:
 
     environment:
       TZ: ${TZ}
+      CERTBOT_PLUGIN_CLOUDFLARE_VERSION: "5.7.0"
 
     ports:
 
