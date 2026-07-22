@@ -218,8 +218,6 @@ services:
 
     restart: unless-stopped
 
-    init: true
-
     security_opt:
       - no-new-privileges:true
 
