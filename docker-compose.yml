@@ -27,7 +27,7 @@ services:
 
     init: true
     security_opt:
-      - no-new-privileges: true
+      - "no-new-privileges:true"
 
     environment:
       TZ: ${TZ}
@@ -126,7 +126,7 @@ services:
 
     init: true
     security_opt:
-      - no-new-privileges: true
+      - "no-new-privileges:true"
 
     environment:
       TZ: ${TZ}
@@ -198,7 +198,7 @@ services:
     restart: unless-stopped
 
     security_opt:
-      - no-new-privileges: true
+      - "no-new-privileges:true"
 
     environment:
       TZ: ${TZ}
@@ -246,7 +246,7 @@ services:
 
     init: true
     security_opt:
-      - no-new-privileges: true
+      - "no-new-privileges:true"
 
     environment:
       TZ: ${TZ}
@@ -290,7 +290,7 @@ services:
 
     init: true
     security_opt:
-      - no-new-privileges: true
+      - "no-new-privileges:true"
 
     read_only: true
 
