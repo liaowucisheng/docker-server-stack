@@ -1,6 +1,6 @@
 # Docker网络隔离
 # proxy_network: 对外服务网络
-# backend_network: 数据库内部网络，不允许外部访问
+# backend_network: 数据库内部网络
 
 name: ${COMPOSE_PROJECT_NAME}
 
@@ -12,14 +12,13 @@ networks:
   backend_network:
     name: backend_network
     driver: bridge
-    internal: true
-
+    # 注意：已移除 internal: true，否则 Docker 会禁止绑定 127.0.0.1 端口到宿主机
 
 services:
 
   # =====================================
   # PostgreSQL 数据库
-  # 仅供内部服务访问
+  # 仅供内部服务及宿主机 127.0.0.1 (SSH) 访问
   # =====================================
   postgres:
     container_name: postgres
@@ -28,7 +27,7 @@ services:
 
     init: true
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges: true
 
     environment:
       TZ: ${TZ}
@@ -36,9 +35,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
 
-   # 只绑定本地，不暴露公网，开发机器可通过dbeaver等连接数据库
+    # 只绑定本地，不暴露公网，开发机器可通过 dbeaver 通过 SSH 隧道连接
     ports:
-      - "127.0.0.1:5432:5432" 
+      - "127.0.0.1:5432:5432"
+
     volumes:
       - ./appdata/postgres/data:/var/lib/postgresql/data
 
@@ -46,11 +46,7 @@ services:
       - backend_network
 
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER}"
-        ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,18 +54,18 @@ services:
 
     stop_grace_period: 120s
 
-    # PostgreSQL共享内存
     shm_size: 256m
 
-    mem_limit: 512m
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-
-
 
   # =====================================
   # Gitea数据库初始化
@@ -78,9 +74,7 @@ services:
   gitea-db-init:
     container_name: gitea-db-init
     image: postgres:15-bookworm
-
     restart: "no"
-
     init: true
 
     environment:
@@ -89,7 +83,6 @@ services:
 
     networks:
       - backend_network
-
 
     command: >
       sh -c "
@@ -101,23 +94,20 @@ services:
 
       echo 'Creating Gitea database...';
 
-      psql -h postgres -U ${POSTGRES_USER}
-      -tc \"SELECT 1 FROM pg_database WHERE datname='${GITEA_DB_NAME}'\"
-      | grep -q 1 ||
-      psql -h postgres -U ${POSTGRES_USER}
+      psql -h postgres -U ${POSTGRES_USER} \
+      -tc \"SELECT 1 FROM pg_database WHERE datname='${GITEA_DB_NAME}'\" \
+      | grep -q 1 || \
+      psql -h postgres -U ${POSTGRES_USER} \
       -c \"CREATE DATABASE ${GITEA_DB_NAME}\";
 
-
-      psql -h postgres -U ${POSTGRES_USER}
-      -tc \"SELECT 1 FROM pg_roles WHERE rolname='${GITEA_DB_USER}'\"
-      | grep -q 1 ||
-      psql -h postgres -U ${POSTGRES_USER}
+      psql -h postgres -U ${POSTGRES_USER} \
+      -tc \"SELECT 1 FROM pg_roles WHERE rolname='${GITEA_DB_USER}'\" \
+      | grep -q 1 || \
+      psql -h postgres -U ${POSTGRES_USER} \
       -c \"CREATE USER ${GITEA_DB_USER} PASSWORD '${GITEA_DB_PASSWORD}'\";
 
-
-      psql -h postgres -U ${POSTGRES_USER}
+      psql -h postgres -U ${POSTGRES_USER} \
       -c \"GRANT ALL PRIVILEGES ON DATABASE ${GITEA_DB_NAME} TO ${GITEA_DB_USER}\";
-
 
       echo 'Gitea database ready';
       "
@@ -126,39 +116,29 @@ services:
       postgres:
         condition: service_healthy
 
-
-
   # =====================================
   # Gitea Git代码托管服务
   # =====================================
   gitea:
     container_name: gitea
-
     image: gitea/gitea:1.27.0
-
     restart: unless-stopped
 
     init: true
-
     security_opt:
-      - no-new-privileges:true
-
+      - no-new-privileges: true
 
     environment:
-
       TZ: ${TZ}
-
       GITEA__database__DB_TYPE: postgres
       GITEA__database__HOST: postgres:5432
       GITEA__database__NAME: ${GITEA_DB_NAME}
       GITEA__database__USER: ${GITEA_DB_USER}
       GITEA__database__PASSWD: ${GITEA_DB_PASSWORD}
 
-
       # 网站访问地址
       GITEA__server__DOMAIN: ${GITEA_DOMAIN}
       GITEA__server__ROOT_URL: https://${GITEA_DOMAIN}
-
 
       # SSH Git访问
       GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
@@ -196,7 +176,6 @@ services:
           "/dev/null",
           "http://localhost:3000/api/health"
         ]
-
       interval: 30s
       timeout: 10s
       retries: 3
@@ -204,8 +183,10 @@ services:
 
     stop_grace_period: 60s
 
-    mem_limit: 512m
-
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # =====================================
   # Nginx Proxy Manager
@@ -213,24 +194,20 @@ services:
   # =====================================
   npm:
     container_name: npm
-
     image: jc21/nginx-proxy-manager:2.15.1
-
     restart: unless-stopped
 
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges: true
 
     environment:
       TZ: ${TZ}
       CERTBOT_PLUGIN_CLOUDFLARE_VERSION: "5.7.0"
 
     ports:
-
       # Web入口
       - "${NPM_HTTP_PORT}:80"
       - "${NPM_HTTPS_PORT}:443"
-
       # 管理后台只允许本机访问
       - "127.0.0.1:${NPM_ADMIN_PORT}:81"
 
@@ -250,29 +227,26 @@ services:
           "/dev/null",
           "http://localhost:81/"
         ]
-
       interval: 30s
       timeout: 10s
       retries: 3
 
-    mem_limit: 256m
-
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # =====================================
   # Web版VS Code
   # =====================================
   code-server:
-
     container_name: code-server
-
     image: codercom/code-server:4.129.0
-
     restart: unless-stopped
 
     init: true
-
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges: true
 
     environment:
       TZ: ${TZ}
@@ -289,7 +263,6 @@ services:
       - proxy_network
 
     healthcheck:
-
       test:
         [
           "CMD",
@@ -298,29 +271,26 @@ services:
           "/dev/null",
           "http://localhost:8080/"
         ]
-
       interval: 30s
       timeout: 10s
       retries: 3
 
-    mem_limit: 512m
-
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # =====================================
   # 默认欢迎页
   # =====================================
   welcome:
-
     container_name: welcome
-
     image: nginx:stable-alpine
-
     restart: unless-stopped
 
     init: true
-
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges: true
 
     read_only: true
 
@@ -335,4 +305,7 @@ services:
     networks:
       - proxy_network
 
-    mem_limit: 64m
+    deploy:
+      resources:
+        limits:
+          memory: 64M
