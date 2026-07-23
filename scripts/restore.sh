@@ -204,6 +204,10 @@ postgres
 
 log "PostgreSQL restore completed"
 
+docker compose start gitea
+
+log "Gitea restarted"
+
 }
 
 # =========================================================
@@ -252,6 +256,10 @@ docker exec gitea \
 rm -f /tmp/restore.zip
 
 log "Gitea restore completed"
+
+docker compose start gitea
+
+log "Gitea restarted"
 
 }
 
