@@ -19,8 +19,8 @@ services:
     user: "1000:1000"
 
     volumes:
-      - ./appdata/code-server/config:/home/coder/.config
-      - ./data/workspace:/home/coder/project
+      - ../appdata/code-server/config:/home/coder/.config
+      - ../data/workspace:/home/coder/project
 
     networks:
       - proxy_network

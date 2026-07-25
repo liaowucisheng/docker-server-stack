@@ -21,8 +21,8 @@ services:
       - "127.0.0.1:${NPM_ADMIN_PORT}:81"
 
     volumes:
-      - ./appdata/npm/data:/data
-      - ./appdata/npm/letsencrypt:/etc/letsencrypt
+      - ../appdata/npm/data:/data
+      - ../appdata/npm/letsencrypt:/etc/letsencrypt
 
     networks:
       - proxy_network

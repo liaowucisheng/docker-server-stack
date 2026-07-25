@@ -22,7 +22,7 @@ services:
       - "127.0.0.1:5432:5432"
 
     volumes:
-      - ./appdata/postgres/data:/var/lib/postgresql/data
+      - ../appdata/postgres/data:/var/lib/postgresql/data
 
     networks:
       - backend_network

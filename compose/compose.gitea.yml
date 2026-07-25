@@ -74,7 +74,7 @@ services:
       - "${GITEA_SSH_PORT}:22"
 
     volumes:
-      - ./appdata/gitea:/data
+      - ../appdata/gitea:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
 

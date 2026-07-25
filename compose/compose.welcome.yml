@@ -19,7 +19,7 @@ services:
       - /tmp
 
     volumes:
-      - ./welcome/index.html:/usr/share/nginx/html/index.html:ro
+      - ../welcome/index.html:/usr/share/nginx/html/index.html:ro
 
     networks:
       - proxy_network
