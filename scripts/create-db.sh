@@ -33,44 +33,8 @@ set -euo pipefail
 # 路径配置
 # =========================================================
 
-# 当前脚本目录
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# 项目根目录
-
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# =========================================================
-# 加载环境变量
-# =========================================================
-
-ENV_FILE="$PROJECT_DIR/.env"
-
-if [ -f "$ENV_FILE" ]; then
-
-    # 自动导入.env变量
-
-    set -a
-    source "$ENV_FILE"
-    set +a
-
-else
-
-    echo "ERROR: .env file not found"
-
-    exit 1
-
-fi
-
-# =========================================================
-# 日志函数
-# =========================================================
-
-log()
-{
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-}
+source "$SCRIPT_DIR/lib.sh"
 
 # =========================================================
 # 使用说明
@@ -119,16 +83,7 @@ exit 1
 check_environment()
 {
 
-    # 检查Docker
-
-    if ! docker info >/dev/null 2>&1
-    then
-
-        log "ERROR: Docker is not running"
-
-        exit 1
-
-    fi
+    check_docker
 
     # 检查postgres容器
 
@@ -291,6 +246,8 @@ main()
     local db_user="$2"
 
     local db_password="${3:-}"
+
+    load_env
 
     validate_name "$db_name" "database"
 

@@ -174,7 +174,7 @@ permission()
 
 log "Setting script permissions..."
 
-chmod +x "$PROJECT_DIR/scripts/"*.sh
+chmod +x "$PROJECT_DIR/scripts/"*.sh "$PROJECT_DIR/scripts/services/"*.sh
 
 }
 

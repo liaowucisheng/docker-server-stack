@@ -34,16 +34,8 @@ if [ -f "$COMPOSE_DIR/compose.override.yml" ]; then
 fi
 
 # =========================================================
-# compose 命令组装
+# compose 命令
 # =========================================================
-
-compose_cmd() {
-  local args=()
-  for f in "${COMPOSE_FILES[@]}"; do
-    args+=(-f "$f")
-  done
-  printf "docker compose %s" "${args[*]}"
-}
 
 compose() {
   local args=()

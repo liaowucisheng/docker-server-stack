@@ -4,8 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
-load_env
-
 FAILED=0
 
 check_docker() {
@@ -101,6 +99,7 @@ main() {
   echo " Docker Stack Health Check"
   echo "================================="
 
+  load_env
   check_docker
   check_containers
   check_postgres
