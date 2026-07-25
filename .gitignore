@@ -21,6 +21,12 @@ Desktop.ini
 *.log
 *.out
 
+# ============ 部署状态 ============
+.state/
+
+# ============ Compose 本地覆盖 ============
+compose/compose.override.yml
+
 # ============ 系统文件 ============
 appdata/
 data/
