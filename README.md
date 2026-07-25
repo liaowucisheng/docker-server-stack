@@ -106,7 +106,14 @@ Docker Compose based self-hosted server stack with automated deployment and main
 ```
 server/
 
-├── docker-compose.yml
+├── compose/
+│   ├── compose.base.yml          # 网络骨架
+│   ├── compose.infra.yml         # PostgreSQL
+│   ├── compose.gitea.yml         # Gitea + DB Init
+│   ├── compose.npm.yml           # Nginx Proxy Manager
+│   ├── compose.code-server.yml   # VS Code Server
+│   └── compose.welcome.yml       # 默认欢迎页
+│
 ├── .env
 ├── .env.example
 │
@@ -114,38 +121,45 @@ server/
 │   └── index.html
 │
 ├── appdata
-│
 │   ├── postgres
 │   │   └── data
-│   │
 │   ├── gitea
 │   │   ├── git
 │   │   ├── gitea
 │   │   └── ssh
-│   │
 │   ├── npm
 │   │   ├── data
 │   │   └── letsencrypt
-│   │
 │   └── code-server
 │       └── config
 │
 ├── data
-│
 │   ├── backup
-│   │   └── postgres
-│   │
+│   │   ├── postgres
+│   │   └── gitea
 │   └── workspace
 │
-└── scripts
-    │
-    ├── install.sh
-    ├── update.sh
-    ├── backup.sh
-    ├── restore.sh
-    ├── create-db.sh
-    └── healthcheck.sh
-
+├── scripts
+│   ├── lib.sh                    # 共享函数库
+│   ├── deploy.sh                 # 智能部署入口
+│   ├── install.sh                # 首次安装
+│   ├── update-all.sh             # 全量更新
+│   ├── update-service.sh         # 单服务更新
+│   ├── healthcheck.sh            # 健康检查
+│   ├── backup.sh                 # 备份
+│   ├── restore.sh                # 恢复
+│   ├── create-db.sh              # 创建数据库
+│   └── services/
+│       ├── gitea.sh
+│       ├── npm.sh
+│       ├── code-server.sh
+│       └── postgres.sh
+│
+├── .github/workflows/
+│   └── deploy.yml                # GitHub Actions
+│
+└── .state/
+    └── last_deployed_sha         # 自动生成
 ```
 
 ---
@@ -423,35 +437,48 @@ gitea-db-init
 
 # Update
 
-更新全部服务：
+## 全量更新
+
+更新所有服务：
 
 ```bash
-./scripts/update.sh
+./scripts/update-all.sh
 ```
+
+## 单服务更新
 
 更新指定服务：
 
 ```bash
-./scripts/update.sh gitea
+./scripts/update-service.sh gitea
+./scripts/update-service.sh npm
+./scripts/update-service.sh code-server
+./scripts/update-service.sh postgres
 ```
 
-流程：
+## 智能部署
 
+通过 Git diff 自动判断变更范围，仅部署受影响的服务：
+
+```bash
+./scripts/deploy.sh
 ```
-git pull
 
-↓
+逻辑：
+- 仅文档变更 → 跳过
+- 全局配置 (.env / base.yml) → 全量更新
+- 单服务文件变更 → 仅更新对应服务
+- 混合变更 → 全量更新（安全兜底）
 
-docker compose pull
+## GitHub Actions 自动部署
 
-↓
+推送 `main` 分支后自动触发：
 
-docker compose up -d
-
-↓
-
-清理旧镜像
+```bash
+git push origin main
 ```
+
+GitHub Actions 通过 SSH 登录服务器，执行 `deploy.sh` 完成智能部署。
 
 ---
 
@@ -630,7 +657,7 @@ healthcheck
 ## 修改配置
 
 ```
-修改 docker-compose.yml
+修改 compose/compose.*.yml
 
 ↓
 
@@ -641,15 +668,22 @@ git commit
 git push
 ```
 
-服务器：
+服务器自动部署（GitHub Actions + deploy.sh）：
 
 ```
-git pull
+git push origin main
 
 ↓
 
-update.sh
+GitHub Actions 触发
 
+↓
+
+服务器执行 ./scripts/deploy.sh
+
+↓
+
+智能判断变更范围并更新
 ```
 
 ---
@@ -673,7 +707,7 @@ backup.sh
 升级：
 
 ```
-update.sh
+update-all.sh
 ```
 
 ---
@@ -699,23 +733,4 @@ update.sh
 MIT License
 
 ---
-
-这版可以直接作为你的 GitHub `README.md`。
-
-下一步建议补充两个文件：
-
-1. `.gitignore`
-
-   * 防止 `.env`
-   * 防止 `appdata`
-   * 防止备份文件提交 GitHub
-
-2. `backup.sh`
-
-   * 需要重新检查一下，确保和现在目录：
-
-   ```
-   data/backup/postgres
-   data/backup/gitea
-   ```
 
