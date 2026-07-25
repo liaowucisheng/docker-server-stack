@@ -20,6 +20,9 @@ cd "$PROJECT_DIR"
 CURRENT_SHA=$(git rev-parse HEAD)
 LAST_SHA_FILE="$STATE_DIR/last_deployed_sha"
 
+# 确保 .state 目录存在
+mkdir -p "$STATE_DIR"
+
 if [ -f "$LAST_SHA_FILE" ]; then
   LAST_SHA=$(cat "$LAST_SHA_FILE")
 else
@@ -110,15 +113,8 @@ while IFS= read -r f; do
   esac
 done <<< "$CHANGED"
 
-# 去重
-UNIQUE_SERVICES=()
-while IFS= read -r s; do
-  found=false
-  for u in "${UNIQUE_SERVICES[@]}"; do
-    [ "$u" = "$s" ] && found=true && break
-  done
-  $found || UNIQUE_SERVICES+=("$s")
-done < <(printf "%s\n" "${SERVICES[@]}")
+# 去重并排序
+mapfile -t UNIQUE_SERVICES < <(printf "%s\n" "${SERVICES[@]}" | sort -u)
 
 # --------------------------------------------------
 # 6. 执行更新
