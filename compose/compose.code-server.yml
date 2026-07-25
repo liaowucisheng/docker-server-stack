@@ -1,0 +1,37 @@
+services:
+  # =====================================
+  # Web版VS Code
+  # =====================================
+  code-server:
+    container_name: code-server
+    image: codercom/code-server:4.129.0
+    restart: unless-stopped
+
+    init: true
+    security_opt:
+      - "no-new-privileges:true"
+
+    environment:
+      TZ: ${TZ}
+      PASSWORD: ${CODE_SERVER_PASSWORD}
+
+    # 避免root创建文件
+    user: "1000:1000"
+
+    volumes:
+      - ./appdata/code-server/config:/home/coder/.config
+      - ./data/workspace:/home/coder/project
+
+    networks:
+      - proxy_network
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
