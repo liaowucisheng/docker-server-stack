@@ -1,0 +1,30 @@
+services:
+  # =====================================
+  # 默认欢迎页
+  # =====================================
+  welcome:
+    container_name: welcome
+    image: nginx:stable-alpine
+    restart: unless-stopped
+
+    init: true
+    security_opt:
+      - "no-new-privileges:true"
+
+    read_only: true
+
+    tmpfs:
+      - /var/run:uid=101,gid=101
+      - /var/cache/nginx:uid=101,gid=101
+      - /tmp
+
+    volumes:
+      - ./welcome/index.html:/usr/share/nginx/html/index.html:ro
+
+    networks:
+      - proxy_network
+
+    deploy:
+      resources:
+        limits:
+          memory: 64M
