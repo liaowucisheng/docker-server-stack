@@ -1,0 +1,15 @@
+# Docker网络隔离
+# proxy_network: 对外服务网络
+# backend_network: 数据库内部网络
+
+name: ${COMPOSE_PROJECT_NAME}
+
+networks:
+  proxy_network:
+    name: proxy_network
+    driver: bridge
+
+  backend_network:
+    name: backend_network
+    driver: bridge
+    # 注意：不设 internal: true，否则 Docker 会禁止绑定 127.0.0.1 端口到宿主机
