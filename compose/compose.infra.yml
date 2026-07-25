@@ -1,0 +1,49 @@
+services:
+  # =====================================
+  # PostgreSQL 数据库
+  # 仅供内部服务及宿主机 127.0.0.1 (SSH) 访问
+  # =====================================
+  postgres:
+    container_name: postgres
+    image: postgres:15-bookworm
+    restart: unless-stopped
+
+    init: true
+    security_opt:
+      - "no-new-privileges:true"
+
+    environment:
+      TZ: ${TZ}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - ./appdata/postgres/data:/var/lib/postgresql/data
+
+    networks:
+      - backend_network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    stop_grace_period: 120s
+    shm_size: 256m
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
