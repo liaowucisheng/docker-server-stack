@@ -32,22 +32,8 @@
 
 set -euo pipefail
 
-# =========================================================
-# 路径
-# =========================================================
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# =========================================================
-# 日志
-# =========================================================
-
-log()
-{
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-}
+source "$SCRIPT_DIR/lib.sh"
 
 # =========================================================
 # 检查root权限
@@ -63,65 +49,6 @@ then
     log "WARNING: recommended running as root"
 
 fi
-
-}
-
-# =========================================================
-# 检查Docker
-# =========================================================
-
-check_docker()
-{
-
-log "Checking Docker..."
-
-if ! command -v docker >/dev/null 2>&1
-
-then
-
-    log "ERROR: Docker not installed"
-
-    echo
-
-    echo "Install Docker first:"
-    echo "https://docs.docker.com/engine/install/"
-
-    exit 1
-
-fi
-
-if ! docker info >/dev/null 2>&1
-
-then
-
-    log "ERROR: Docker service not running"
-
-    exit 1
-
-fi
-
-log "Docker OK"
-
-}
-
-# =========================================================
-# 检查Compose
-# =========================================================
-
-check_compose()
-{
-
-if ! docker compose version >/dev/null 2>&1
-
-then
-
-    log "ERROR: Docker Compose plugin missing"
-
-    exit 1
-
-fi
-
-log "Docker Compose OK"
 
 }
 
@@ -262,11 +189,11 @@ cd "$PROJECT_DIR"
 
 log "Pulling Docker images..."
 
-docker compose pull
+compose pull
 
 log "Starting services..."
 
-docker compose up -d
+compose up -d
 
 }
 
@@ -281,7 +208,7 @@ log "Waiting containers startup..."
 
 sleep 20
 
-docker compose ps
+compose ps
 
 }
 
@@ -303,6 +230,8 @@ echo "================================="
 echo
 
 check_root
+
+load_env
 
 check_docker
 

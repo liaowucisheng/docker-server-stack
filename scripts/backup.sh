@@ -22,17 +22,9 @@
 # pipefail: 管道任意一步失败都算失败
 set -euo pipefail
 
-# =========================================================
-# 基础路径
-# =========================================================
-
-# 当前脚本目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
-# 项目根目录
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# 备份目录
 BACKUP_DIR="$PROJECT_DIR/data/backup"
 
 # 时间标签
@@ -40,54 +32,6 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # 保留多少天备份
 RETENTION_DAYS=30
-
-# =========================================================
-# 加载环境变量
-# =========================================================
-
-ENV_FILE="$PROJECT_DIR/.env"
-
-if [ -f "$ENV_FILE" ]; then
-
-    # 自动导入.env变量
-    set -a
-    source "$ENV_FILE"
-    set +a
-
-else
-
-    echo "ERROR: .env not found"
-
-    exit 1
-
-fi
-
-# =========================================================
-# 日志函数
-# =========================================================
-
-log()
-{
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-}
-
-# =========================================================
-# 检查Docker状态
-# =========================================================
-
-check_docker()
-{
-
-    if ! docker info >/dev/null 2>&1
-    then
-
-        log "ERROR: Docker is not running"
-
-        exit 1
-
-    fi
-
-}
 
 # =========================================================
 # PostgreSQL备份
@@ -275,6 +219,7 @@ main()
     log "Backup started"
     log "================================="
 
+    load_env
     check_docker
 
     backup_postgres

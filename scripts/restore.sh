@@ -32,46 +32,12 @@
 
 set -euo pipefail
 
-# =========================================================
-# 路径
-# =========================================================
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
 BACKUP_DIR="$PROJECT_DIR/data/backup"
 
-# =========================================================
-# 加载环境变量
-# =========================================================
-
-ENV_FILE="$PROJECT_DIR/.env"
-
-if [ -f "$ENV_FILE" ]
-
-then
-
-    set -a
-    source "$ENV_FILE"
-    set +a
-
-else
-
-    echo "ERROR: .env not found"
-
-    exit 1
-
-fi
-
-# =========================================================
-# 日志
-# =========================================================
-
-log()
-{
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-}
+load_env
 
 # =========================================================
 # 使用说明
@@ -192,7 +158,7 @@ confirm
 
 log "Stopping application containers..."
 
-docker compose stop gitea
+compose stop gitea
 
 log "Restoring PostgreSQL..."
 
@@ -204,7 +170,7 @@ postgres
 
 log "PostgreSQL restore completed"
 
-docker compose start gitea
+compose start gitea
 
 log "Gitea restarted"
 
@@ -236,7 +202,7 @@ confirm
 
 log "Stopping Gitea..."
 
-docker compose stop gitea
+compose stop gitea
 
 log "Copy backup into container..."
 
@@ -257,7 +223,7 @@ rm -f /tmp/restore.zip
 
 log "Gitea restore completed"
 
-docker compose start gitea
+compose start gitea
 
 log "Gitea restarted"
 
