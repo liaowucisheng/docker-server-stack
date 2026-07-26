@@ -5,7 +5,7 @@ services:
   # =====================================
   vaultwarden:
     container_name: vaultwarden
-    image: vaultwarden/server:1.35.2 # 建议固定版本，后续再升级
+    image: vaultwarden/server:1.37.0
     restart: unless-stopped
 
     init: true
