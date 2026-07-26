@@ -24,6 +24,7 @@ COMPOSE_FILES=(
     "$COMPOSE_DIR/compose.infra.yml"
     "$COMPOSE_DIR/compose.gitea.yml"
     "$COMPOSE_DIR/compose.npm.yml"
+    "$COMPOSE_DIR/compose.vaultwarden.yml"
     "$COMPOSE_DIR/compose.code-server.yml"
     "$COMPOSE_DIR/compose.welcome.yml"
 )

@@ -205,6 +205,70 @@ backup_gitea() {
 }
 
 # =========================================================
+# Vaultwarden备份
+#
+# 策略：
+#   1. 短暂停止容器保证 SQLite 一致性
+#   2. 打包整个 data 目录（包含 db.sqlite3、附件、rsa_key 等）
+#   3. 启动容器
+#   4. 清理过期备份
+#
+# 输出：
+#   data/backup/vaultwarden/vaultwarden_YYYYMMDD_HHMMSS.tar.gz
+# =========================================================
+
+backup_vaultwarden() {
+    local target_dir="$BACKUP_DIR/vaultwarden"
+    local data_dir="$PROJECT_DIR/appdata/vaultwarden"
+
+    mkdir -p "$target_dir"
+
+    # 检查容器是否存在
+    if ! docker ps -a --format '{{.Names}}' | grep -q "^vaultwarden$"; then
+        log "Vaultwarden container not found, skip backup"
+        return 0
+    fi
+
+    log "Starting Vaultwarden backup..."
+
+    # 1. 停止服务（保证 SQLite 一致性，个人使用通常只需几秒）
+    log "Stopping vaultwarden for consistent backup..."
+    compose stop vaultwarden
+
+    # 2. 打包数据目录
+    local backup_file="$target_dir/vaultwarden_${TIMESTAMP}.tar.gz"
+
+    if [ -d "$data_dir" ] && [ "$(ls -A "$data_dir" 2> /dev/null)" ]; then
+        tar -czf "$backup_file" \
+            -C "$PROJECT_DIR/appdata" \
+            vaultwarden
+
+        if [ ! -s "$backup_file" ]; then
+            log "ERROR: Vaultwarden backup file is empty"
+            compose start vaultwarden
+            exit 1
+        fi
+
+        log "Vaultwarden data -> $backup_file"
+    else
+        log "WARNING: Vaultwarden data directory is empty or missing"
+    fi
+
+    # 3. 启动服务
+    log "Starting vaultwarden..."
+    compose start vaultwarden
+
+    # 4. 清理超过保留天数的备份
+    find "$target_dir" \
+        -type f \
+        -name "vaultwarden_*.tar.gz" \
+        -mtime +"$RETENTION_DAYS" \
+        -delete
+
+    log "Vaultwarden backup completed"
+}
+
+# =========================================================
 # 主流程
 # =========================================================
 
@@ -220,6 +284,8 @@ main() {
     backup_postgres
 
     backup_gitea
+
+    backup_vaultwarden
 
     log "================================="
     log "Backup completed"

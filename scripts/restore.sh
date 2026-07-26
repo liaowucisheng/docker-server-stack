@@ -215,6 +215,47 @@ restore_gitea() {
 }
 
 # =========================================================
+# Vaultwarden恢复
+# =========================================================
+
+restore_vaultwarden() {
+    local file="$1"
+    local backup_file="$BACKUP_DIR/vaultwarden/$file"
+    local data_dir="$PROJECT_DIR/appdata/vaultwarden"
+
+    if [ ! -f "$backup_file" ]; then
+        log "Backup file not found:"
+        echo "$backup_file"
+        exit 1
+    fi
+
+    confirm
+
+    log "Stopping Vaultwarden..."
+    compose stop vaultwarden || true
+
+    log "Backing up current data (safety)..."
+    if [ -d "$data_dir" ]; then
+        local safety_backup="$data_dir.bak.$(date +%Y%m%d_%H%M%S)"
+        mv "$data_dir" "$safety_backup"
+        log "Current data moved to $safety_backup"
+    fi
+
+    log "Restoring Vaultwarden data..."
+    mkdir -p "$PROJECT_DIR/appdata"
+    tar -xzf "$backup_file" -C "$PROJECT_DIR/appdata"
+
+    # 确保权限正确（vaultwarden 容器默认用 UID 1000 或 root，视镜像而定）
+    # 大多数情况下不需要改，若启动失败可手动 chown
+
+    log "Starting Vaultwarden..."
+    compose start vaultwarden
+
+    log "Vaultwarden restore completed"
+    log "Please verify: https://${VAULTWARDEN_DOMAIN}"
+}
+
+# =========================================================
 # 主程序
 # =========================================================
 
@@ -229,25 +270,18 @@ main() {
     check_environment
 
     case "$TYPE" in
-
         postgres)
-
             restore_postgres "$FILE"
-
             ;;
-
         gitea)
-
             restore_gitea "$FILE"
-
             ;;
-
+        vaultwarden)
+            restore_vaultwarden "$FILE"
+            ;;
         *)
-
             usage
-
             ;;
-
     esac
 
     log "Restore finished"

@@ -1,0 +1,52 @@
+services:
+  # =====================================
+  # Vaultwarden（Bitwarden 兼容密码管理器）
+  # 轻量级，默认使用 SQLite
+  # =====================================
+  vaultwarden:
+    container_name: vaultwarden
+    image: vaultwarden/server:1.35.2 # 建议固定版本，后续再升级
+    restart: unless-stopped
+
+    init: true
+    security_opt:
+      - "no-new-privileges:true"
+
+    environment:
+      TZ: ${TZ}
+      # 域名（必须 HTTPS）
+      DOMAIN: https://${VAULTWARDEN_DOMAIN}
+      # 管理后台 Token（强烈建议设置）
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
+      # 禁止开放注册（生产环境推荐）
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
+      # 邀请注册（家庭/小团队可用）
+      INVITATIONS_ALLOWED: ${VAULTWARDEN_INVITATIONS_ALLOWED:-true}
+      # 日志级别
+      LOG_LEVEL: warn
+      # WebSocket（实时同步）
+      WEBSOCKET_ENABLED: "true"
+
+    volumes:
+      - ../appdata/vaultwarden:/data
+
+    networks:
+      - proxy_network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/alive"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -120,6 +120,9 @@ while IFS= read -r f; do
         compose/compose.welcome.yml)
             SERVICES+=("welcome")
             ;;
+        compose/compose.vaultwarden.yml | scripts/services/vaultwarden.sh)
+            SERVICES+=("vaultwarden")
+            ;;
     esac
 done <<< "$CHANGED"
 

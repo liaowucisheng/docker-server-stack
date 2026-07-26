@@ -101,11 +101,15 @@ create_directories() {
 
     "$PROJECT_DIR/appdata/code-server/config"
 
+    "$PROJECT_DIR/appdata/vaultwarden"
+
     "$PROJECT_DIR/data/workspace"
 
     "$PROJECT_DIR/data/backup/postgres"
 
     "$PROJECT_DIR/data/backup/gitea"
+
+    "$PROJECT_DIR/data/backup/vaultwarden"
 
     # welcome目录
 
