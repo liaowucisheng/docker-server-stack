@@ -39,16 +39,13 @@ source "$SCRIPT_DIR/lib.sh"
 # 检查root权限
 # =========================================================
 
-check_root()
-{
+check_root() {
 
-if [ "$EUID" -ne 0 ]
+    if [ "$EUID" -ne 0 ]; then
 
-then
+        log "WARNING: recommended running as root"
 
-    log "WARNING: recommended running as root"
-
-fi
+    fi
 
 }
 
@@ -56,34 +53,31 @@ fi
 # 检查环境文件
 # =========================================================
 
-check_env()
-{
+check_env() {
 
-cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR"
 
-if [ ! -f ".env" ]
+    if [ ! -f ".env" ]; then
 
-then
+        echo
 
-    echo
+        log "ERROR: .env not found"
 
-    log "ERROR: .env not found"
+        echo
 
-    echo
+        echo "Create from template:"
 
-    echo "Create from template:"
+        echo
 
-    echo
+        echo "cp .env.example .env"
 
-    echo "cp .env.example .env"
+        echo
 
-    echo
+        exit 1
 
-    exit 1
+    fi
 
-fi
-
-log ".env found"
+    log ".env found"
 
 }
 
@@ -91,34 +85,33 @@ log ".env found"
 # 创建目录
 # =========================================================
 
-create_directories()
-{
+create_directories() {
 
-log "Creating directories..."
+    log "Creating directories..."
 
-mkdir -p \
+    mkdir -p
 
-"$PROJECT_DIR/appdata/postgres/data" \
+    "$PROJECT_DIR/appdata/postgres/data"
 
-"$PROJECT_DIR/appdata/gitea" \
+    "$PROJECT_DIR/appdata/gitea"
 
-"$PROJECT_DIR/appdata/npm/data" \
+    "$PROJECT_DIR/appdata/npm/data"
 
-"$PROJECT_DIR/appdata/npm/letsencrypt" \
+    "$PROJECT_DIR/appdata/npm/letsencrypt"
 
-"$PROJECT_DIR/appdata/code-server/config" \
+    "$PROJECT_DIR/appdata/code-server/config"
 
-"$PROJECT_DIR/data/workspace" \
+    "$PROJECT_DIR/data/workspace"
 
-"$PROJECT_DIR/data/backup/postgres" \
+    "$PROJECT_DIR/data/backup/postgres"
 
-"$PROJECT_DIR/data/backup/gitea"
+    "$PROJECT_DIR/data/backup/gitea"
 
-# welcome目录
+    # welcome目录
 
-mkdir -p "$PROJECT_DIR/welcome"
+    mkdir -p "$PROJECT_DIR/welcome"
 
-log "Directory creation completed"
+    log "Directory creation completed"
 
 }
 
@@ -126,14 +119,11 @@ log "Directory creation completed"
 # 检查welcome页面
 # =========================================================
 
-check_welcome()
-{
+check_welcome() {
 
-if [ ! -f "$PROJECT_DIR/welcome/index.html" ]
+    if [ ! -f "$PROJECT_DIR/welcome/index.html" ]; then
 
-then
-
-cat > "$PROJECT_DIR/welcome/index.html" <<EOF
+        cat > "$PROJECT_DIR/welcome/index.html" << EOF
 
 <!DOCTYPE html>
 
@@ -159,9 +149,9 @@ cat > "$PROJECT_DIR/welcome/index.html" <<EOF
 
 EOF
 
-log "Created default welcome page"
+        log "Created default welcome page"
 
-fi
+    fi
 
 }
 
@@ -169,12 +159,11 @@ fi
 # 设置脚本权限
 # =========================================================
 
-permission()
-{
+permission() {
 
-log "Setting script permissions..."
+    log "Setting script permissions..."
 
-chmod +x "$PROJECT_DIR/scripts/"*.sh "$PROJECT_DIR/scripts/services/"*.sh
+    chmod +x "$PROJECT_DIR/scripts/"*.sh "$PROJECT_DIR/scripts/services/"*.sh
 
 }
 
@@ -182,18 +171,17 @@ chmod +x "$PROJECT_DIR/scripts/"*.sh "$PROJECT_DIR/scripts/services/"*.sh
 # Docker启动
 # =========================================================
 
-start_services()
-{
+start_services() {
 
-cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR"
 
-log "Pulling Docker images..."
+    log "Pulling Docker images..."
 
-compose pull
+    compose pull
 
-log "Starting services..."
+    log "Starting services..."
 
-compose up -d
+    compose up -d
 
 }
 
@@ -201,14 +189,13 @@ compose up -d
 # 等待服务
 # =========================================================
 
-wait_services()
-{
+wait_services() {
 
-log "Waiting containers startup..."
+    log "Waiting containers startup..."
 
-sleep 20
+    sleep 20
 
-compose ps
+    compose ps
 
 }
 
@@ -216,64 +203,63 @@ compose ps
 # 主程序
 # =========================================================
 
-main()
-{
+main() {
 
-echo
+    echo
 
-echo "================================="
+    echo "================================="
 
-echo " Docker Server Installation"
+    echo " Docker Server Installation"
 
-echo "================================="
+    echo "================================="
 
-echo
+    echo
 
-check_root
+    check_root
 
-load_env
+    load_env
 
-check_docker
+    check_docker
 
-check_compose
+    check_compose
 
-check_env
+    check_env
 
-create_directories
+    create_directories
 
-check_welcome
+    check_welcome
 
-permission
+    permission
 
-start_services
+    start_services
 
-wait_services
+    wait_services
 
-echo
+    echo
 
-log "Installation completed"
+    log "Installation completed"
 
-echo
+    echo
 
-echo "Next steps:"
+    echo "Next steps:"
 
-echo
+    echo
 
-echo "1. Check status:"
+    echo "1. Check status:"
 
-echo "   ./scripts/healthcheck.sh"
+    echo "   ./scripts/healthcheck.sh"
 
-echo
+    echo
 
-echo "2. Open NPM:"
+    echo "2. Open NPM:"
 
-echo "   http://server-ip:81"
+    echo "   http://server-ip:81"
 
-echo
+    echo
 
-echo "3. Configure domain proxy"
+    echo "3. Configure domain proxy"
 
-echo
+    echo
 
 }
 

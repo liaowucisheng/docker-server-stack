@@ -45,8 +45,7 @@ RETENTION_DAYS=30
 #
 # =========================================================
 
-backup_postgres()
-{
+backup_postgres() {
 
     local target_dir="$BACKUP_DIR/postgres"
 
@@ -62,11 +61,12 @@ backup_postgres()
 
     local databases
 
-    databases=$(docker exec postgres \
-        psql \
-        -U "$POSTGRES_USER" \
-        -tAc \
-        "
+    databases=$(
+        docker exec postgres \
+            psql \
+            -U "$POSTGRES_USER" \
+            -tAc \
+            "
         SELECT datname
         FROM pg_database
         WHERE datistemplate = false
@@ -90,8 +90,7 @@ backup_postgres()
 
     # 检查文件是否有效
 
-    if [ ! -s "$postgres_dump" ]
-    then
+    if [ ! -s "$postgres_dump" ]; then
 
         log "ERROR: PostgreSQL backup failed"
 
@@ -107,8 +106,7 @@ backup_postgres()
     # 备份业务数据库
     # -------------------------
 
-    for db in $databases
-    do
+    for db in $databases; do
 
         local db_dump
 
@@ -120,8 +118,7 @@ backup_postgres()
             "$db" \
             | gzip > "$db_dump"
 
-        if [ ! -s "$db_dump" ]
-        then
+        if [ ! -s "$db_dump" ]; then
 
             log "WARNING: database $db backup failed"
 
@@ -158,8 +155,7 @@ backup_postgres()
 #
 # =========================================================
 
-backup_gitea()
-{
+backup_gitea() {
 
     local target_dir="$BACKUP_DIR/gitea"
 
@@ -212,8 +208,7 @@ backup_gitea()
 # 主流程
 # =========================================================
 
-main()
-{
+main() {
 
     log "================================="
     log "Backup started"

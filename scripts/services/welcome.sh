@@ -4,8 +4,8 @@
 # update() 函数由 update-service.sh 调用
 
 update() {
-  log "Updating Welcome page..."
-  compose pull welcome
-  compose up -d --no-deps welcome
-  info "Welcome service updated"
+    log "Updating Welcome page..."
+    compose pull welcome
+    compose up -d --no-deps welcome
+    info "Welcome service updated"
 }

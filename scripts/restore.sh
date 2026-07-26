@@ -43,10 +43,9 @@ load_env
 # 使用说明
 # =========================================================
 
-usage()
-{
+usage() {
 
-cat <<EOF
+    cat << EOF
 
 Usage:
 
@@ -72,7 +71,7 @@ Examples:
 
 EOF
 
-exit 1
+    exit 1
 
 }
 
@@ -80,12 +79,9 @@ exit 1
 # Docker检查
 # =========================================================
 
-check_environment()
-{
+check_environment() {
 
-    if ! docker info >/dev/null 2>&1
-
-    then
+    if ! docker info > /dev/null 2>&1; then
 
         log "ERROR: Docker is not running"
 
@@ -95,9 +91,7 @@ check_environment()
 
     if ! docker ps \
         --format '{{.Names}}' \
-        | grep -q "^postgres$"
-
-    then
+        | grep -q "^postgres$"; then
 
         log "ERROR: postgres container not running"
 
@@ -111,24 +105,21 @@ check_environment()
 # 安全确认
 # =========================================================
 
-confirm()
-{
+confirm() {
 
-read -rp "
+    read -rp "
 WARNING:
 This operation will overwrite current data.
 
 Continue? (yes/no): " answer
 
-if [ "$answer" != "yes" ]
+    if [ "$answer" != "yes" ]; then
 
-then
+        echo "Cancelled"
 
-    echo "Cancelled"
+        exit 0
 
-    exit 0
-
-fi
+    fi
 
 }
 
@@ -136,43 +127,40 @@ fi
 # PostgreSQL恢复
 # =========================================================
 
-restore_postgres()
-{
+restore_postgres() {
 
-local file="$1"
+    local file="$1"
 
-local backup_file="$BACKUP_DIR/postgres/$file"
+    local backup_file="$BACKUP_DIR/postgres/$file"
 
-if [ ! -f "$backup_file" ]
+    if [ ! -f "$backup_file" ]; then
 
-then
+        log "Backup file not found:"
+        echo "$backup_file"
 
-    log "Backup file not found:"
-    echo "$backup_file"
+        exit 1
 
-    exit 1
+    fi
 
-fi
+    confirm
 
-confirm
+    log "Stopping application containers..."
 
-log "Stopping application containers..."
+    compose stop gitea
 
-compose stop gitea
+    log "Restoring PostgreSQL..."
 
-log "Restoring PostgreSQL..."
+    gunzip -c "$backup_file" \
+        | docker exec -i postgres \
+            psql \
+            -U "$POSTGRES_USER" \
+            postgres
 
-gunzip -c "$backup_file" | \
-docker exec -i postgres \
-psql \
--U "$POSTGRES_USER" \
-postgres
+    log "PostgreSQL restore completed"
 
-log "PostgreSQL restore completed"
+    compose start gitea
 
-compose start gitea
-
-log "Gitea restarted"
+    log "Gitea restarted"
 
 }
 
@@ -180,52 +168,49 @@ log "Gitea restarted"
 # Gitea恢复
 # =========================================================
 
-restore_gitea()
-{
+restore_gitea() {
 
-local file="$1"
+    local file="$1"
 
-local backup_file="$BACKUP_DIR/gitea/$file"
+    local backup_file="$BACKUP_DIR/gitea/$file"
 
-if [ ! -f "$backup_file" ]
+    if [ ! -f "$backup_file" ]; then
 
-then
+        log "Backup file not found:"
+        echo "$backup_file"
 
-    log "Backup file not found:"
-    echo "$backup_file"
+        exit 1
 
-    exit 1
+    fi
 
-fi
+    confirm
 
-confirm
+    log "Stopping Gitea..."
 
-log "Stopping Gitea..."
+    compose stop gitea
 
-compose stop gitea
+    log "Copy backup into container..."
 
-log "Copy backup into container..."
+    docker cp \
+        "$backup_file" \
+        gitea:/tmp/restore.zip
 
-docker cp \
-"$backup_file" \
-gitea:/tmp/restore.zip
+    log "Restoring Gitea..."
 
-log "Restoring Gitea..."
+    docker exec gitea \
+        gitea restore \
+        --from /tmp/restore.zip
 
-docker exec gitea \
-gitea restore \
---from /tmp/restore.zip
+    log "Cleaning temporary file"
 
-log "Cleaning temporary file"
+    docker exec gitea \
+        rm -f /tmp/restore.zip
 
-docker exec gitea \
-rm -f /tmp/restore.zip
+    log "Gitea restore completed"
 
-log "Gitea restore completed"
+    compose start gitea
 
-compose start gitea
-
-log "Gitea restarted"
+    log "Gitea restarted"
 
 }
 
@@ -233,40 +218,39 @@ log "Gitea restarted"
 # 主程序
 # =========================================================
 
-main()
-{
+main() {
 
-[ $# -eq 2 ] || usage
+    [ $# -eq 2 ] || usage
 
-TYPE="$1"
+    TYPE="$1"
 
-FILE="$2"
+    FILE="$2"
 
-check_environment
+    check_environment
 
-case "$TYPE" in
+    case "$TYPE" in
 
-postgres)
+        postgres)
 
-    restore_postgres "$FILE"
+            restore_postgres "$FILE"
 
-    ;;
+            ;;
 
-gitea)
+        gitea)
 
-    restore_gitea "$FILE"
+            restore_gitea "$FILE"
 
-    ;;
+            ;;
 
-*)
+        *)
 
-    usage
+            usage
 
-    ;;
+            ;;
 
-esac
+    esac
 
-log "Restore finished"
+    log "Restore finished"
 
 }
 

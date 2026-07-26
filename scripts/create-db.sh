@@ -40,10 +40,9 @@ source "$SCRIPT_DIR/lib.sh"
 # 使用说明
 # =========================================================
 
-usage()
-{
+usage() {
 
-cat <<EOF
+    cat << EOF
 
 Usage:
 
@@ -72,7 +71,7 @@ Parameters:
 
 EOF
 
-exit 1
+    exit 1
 
 }
 
@@ -80,8 +79,7 @@ exit 1
 # 检查Docker环境
 # =========================================================
 
-check_environment()
-{
+check_environment() {
 
     check_docker
 
@@ -89,8 +87,7 @@ check_environment()
 
     if ! docker ps \
         --format '{{.Names}}' \
-        | grep -q "^postgres$"
-    then
+        | grep -q "^postgres$"; then
 
         log "ERROR: postgres container is not running"
 
@@ -104,14 +101,12 @@ check_environment()
 # 校验数据库名称和用户名
 # =========================================================
 
-validate_name()
-{
+validate_name() {
 
     local name="$1"
     local type="$2"
 
-    if ! [[ "$name" =~ ^[a-z][a-z0-9_]+$ ]]
-    then
+    if ! [[ "$name" =~ ^[a-z][a-z0-9_]+$ ]]; then
 
         echo "Invalid $type name: $name"
 
@@ -130,8 +125,7 @@ validate_name()
 # 创建数据库
 # =========================================================
 
-create_database()
-{
+create_database() {
 
     local db_name="$1"
 
@@ -139,16 +133,16 @@ create_database()
 
     local exists
 
-    exists=$(docker exec postgres \
-        psql \
-        -U "$POSTGRES_USER" \
-        -d postgres \
-        -tAc \
-        "SELECT 1 FROM pg_database WHERE datname='$db_name'"
+    exists=$(
+        docker exec postgres \
+            psql \
+            -U "$POSTGRES_USER" \
+            -d postgres \
+            -tAc \
+            "SELECT 1 FROM pg_database WHERE datname='$db_name'"
     )
 
-    if [ "$exists" = "1" ]
-    then
+    if [ "$exists" = "1" ]; then
 
         log "Database '$db_name' already exists"
 
@@ -169,8 +163,7 @@ create_database()
 # 创建数据库用户
 # =========================================================
 
-create_user()
-{
+create_user() {
 
     local username="$1"
     local password="$2"
@@ -179,16 +172,16 @@ create_user()
 
     local exists
 
-    exists=$(docker exec postgres \
-        psql \
-        -U "$POSTGRES_USER" \
-        -d postgres \
-        -tAc \
-        "SELECT 1 FROM pg_roles WHERE rolname='$username'"
+    exists=$(
+        docker exec postgres \
+            psql \
+            -U "$POSTGRES_USER" \
+            -d postgres \
+            -tAc \
+            "SELECT 1 FROM pg_roles WHERE rolname='$username'"
     )
 
-    if [ "$exists" = "1" ]
-    then
+    if [ "$exists" = "1" ]; then
 
         log "User '$username' already exists"
 
@@ -209,8 +202,7 @@ create_user()
 # 授权数据库
 # =========================================================
 
-grant_permission()
-{
+grant_permission() {
 
     local db_name="$1"
     local username="$2"
@@ -234,8 +226,7 @@ grant_permission()
 # 主程序
 # =========================================================
 
-main()
-{
+main() {
 
     # 参数检查
 
@@ -255,8 +246,7 @@ main()
 
     # 没有指定密码则自动生成
 
-    if [ -z "$db_password" ]
-    then
+    if [ -z "$db_password" ]; then
 
         db_password=$(openssl rand -base64 32)
 

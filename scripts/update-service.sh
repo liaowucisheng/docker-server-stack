@@ -5,10 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 usage() {
-  echo "Usage: $0 <service-name>"
-  echo ""
-  echo "Services: gitea, npm, code-server, postgres"
-  exit 1
+    echo "Usage: $0 <service-name>"
+    echo ""
+    echo "Services: gitea, npm, code-server, postgres"
+    exit 1
 }
 
 SERVICE="${1:-}"
@@ -16,9 +16,9 @@ SERVICE="${1:-}"
 
 SERVICE_SCRIPT="$SCRIPT_DIR/services/${SERVICE}.sh"
 if [ ! -f "$SERVICE_SCRIPT" ]; then
-  error "Unknown service: $SERVICE"
-  error "No script found at $SERVICE_SCRIPT"
-  exit 1
+    error "Unknown service: $SERVICE"
+    error "No script found at $SERVICE_SCRIPT"
+    exit 1
 fi
 
 load_env

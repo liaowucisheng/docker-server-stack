@@ -24,11 +24,11 @@ LAST_SHA_FILE="$STATE_DIR/last_deployed_sha"
 mkdir -p "$STATE_DIR"
 
 if [ -f "$LAST_SHA_FILE" ]; then
-  LAST_SHA=$(cat "$LAST_SHA_FILE")
+    LAST_SHA=$(cat "$LAST_SHA_FILE")
 else
-  # 首次部署：从头 diff
-  LAST_SHA=$(git rev-list --max-parents=0 HEAD)
-  log "First deploy — comparing against initial commit"
+    # 首次部署：从头 diff
+    LAST_SHA=$(git rev-list --max-parents=0 HEAD)
+    log "First deploy — comparing against initial commit"
 fi
 
 log "Current SHA : $CURRENT_SHA"
@@ -36,19 +36,19 @@ log "Last SHA   : $LAST_SHA"
 
 # 如果 SHA 相同则跳过
 if [ "$CURRENT_SHA" = "$LAST_SHA" ]; then
-  info "No new commits since last deploy, skipping"
-  exit 0
+    info "No new commits since last deploy, skipping"
+    exit 0
 fi
 
 # --------------------------------------------------
 # 2. 获取变更文件列表
 # --------------------------------------------------
 
-CHANGED=$(git diff --name-only "$LAST_SHA".."$CURRENT_SHA" 2>/dev/null || true)
+CHANGED=$(git diff --name-only "$LAST_SHA".."$CURRENT_SHA" 2> /dev/null || true)
 
 if [ -z "$CHANGED" ]; then
-  info "No file changes detected, skipping"
-  exit 0
+    info "No file changes detected, skipping"
+    exit 0
 fi
 
 log "Changed files:"
@@ -60,16 +60,19 @@ echo "$CHANGED" | while IFS= read -r f; do echo "  $f"; done
 
 ONLY_DOCS=true
 while IFS= read -r f; do
-  case "$f" in
-    *.md|*.txt|*.gitignore|*.mdx) ;;
-    *) ONLY_DOCS=false; break ;;
-  esac
+    case "$f" in
+        *.md | *.txt | *.gitignore | *.mdx) ;;
+        *)
+            ONLY_DOCS=false
+            break
+            ;;
+    esac
 done <<< "$CHANGED"
 
 if $ONLY_DOCS; then
-  info "Only documentation changed, skipping deployment"
-  echo "$CURRENT_SHA" > "$LAST_SHA_FILE"
-  exit 0
+    info "Only documentation changed, skipping deployment"
+    echo "$CURRENT_SHA" > "$LAST_SHA_FILE"
+    exit 0
 fi
 
 # --------------------------------------------------
@@ -78,18 +81,20 @@ fi
 
 GLOBAL_CHANGE=false
 while IFS= read -r f; do
-  case "$f" in
-    .env|compose/compose.base.yml|compose/compose.override.yml)
-      GLOBAL_CHANGE=true; break ;;
-  esac
+    case "$f" in
+        .env | compose/compose.base.yml | compose/compose.override.yml)
+            GLOBAL_CHANGE=true
+            break
+            ;;
+    esac
 done <<< "$CHANGED"
 
 if $GLOBAL_CHANGE; then
-  log "Global configuration changed — full deploy"
-  ./scripts/update-all.sh
-  echo "$CURRENT_SHA" > "$LAST_SHA_FILE"
-  info "Deploy completed (full)"
-  exit 0
+    log "Global configuration changed — full deploy"
+    ./scripts/update-all.sh
+    echo "$CURRENT_SHA" > "$LAST_SHA_FILE"
+    info "Deploy completed (full)"
+    exit 0
 fi
 
 # --------------------------------------------------
@@ -99,18 +104,23 @@ fi
 SERVICES=()
 
 while IFS= read -r f; do
-  case "$f" in
-    compose/compose.infra.yml|scripts/services/postgres.sh)
-      SERVICES+=("postgres") ;;
-    compose/compose.gitea.yml|scripts/services/gitea.sh)
-      SERVICES+=("gitea") ;;
-    compose/compose.npm.yml|scripts/services/npm.sh)
-      SERVICES+=("npm") ;;
-    compose/compose.code-server.yml|scripts/services/code-server.sh)
-      SERVICES+=("code-server") ;;
-    compose/compose.welcome.yml)
-      SERVICES+=("welcome") ;;
-  esac
+    case "$f" in
+        compose/compose.infra.yml | scripts/services/postgres.sh)
+            SERVICES+=("postgres")
+            ;;
+        compose/compose.gitea.yml | scripts/services/gitea.sh)
+            SERVICES+=("gitea")
+            ;;
+        compose/compose.npm.yml | scripts/services/npm.sh)
+            SERVICES+=("npm")
+            ;;
+        compose/compose.code-server.yml | scripts/services/code-server.sh)
+            SERVICES+=("code-server")
+            ;;
+        compose/compose.welcome.yml)
+            SERVICES+=("welcome")
+            ;;
+    esac
 done <<< "$CHANGED"
 
 # 去重并排序
@@ -121,14 +131,14 @@ mapfile -t UNIQUE_SERVICES < <(printf "%s\n" "${SERVICES[@]}" | sort -u)
 # --------------------------------------------------
 
 if [ ${#UNIQUE_SERVICES[@]} -eq 0 ]; then
-  log "Changes detected but no specific service match — full deploy"
-  ./scripts/update-all.sh
+    log "Changes detected but no specific service match — full deploy"
+    ./scripts/update-all.sh
 elif [ ${#UNIQUE_SERVICES[@]} -eq 1 ]; then
-  log "Updating single service: ${UNIQUE_SERVICES[0]}"
-  ./scripts/update-service.sh "${UNIQUE_SERVICES[0]}"
+    log "Updating single service: ${UNIQUE_SERVICES[0]}"
+    ./scripts/update-service.sh "${UNIQUE_SERVICES[0]}"
 else
-  log "Multiple services changed (${UNIQUE_SERVICES[*]}) — full deploy"
-  ./scripts/update-all.sh
+    log "Multiple services changed (${UNIQUE_SERVICES[*]}) — full deploy"
+    ./scripts/update-all.sh
 fi
 
 # --------------------------------------------------

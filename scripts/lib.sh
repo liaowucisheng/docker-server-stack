@@ -20,17 +20,17 @@ COMPOSE_DIR="$PROJECT_DIR/compose"
 
 # Compose 文件列表（按顺序）
 COMPOSE_FILES=(
-  "$COMPOSE_DIR/compose.base.yml"
-  "$COMPOSE_DIR/compose.infra.yml"
-  "$COMPOSE_DIR/compose.gitea.yml"
-  "$COMPOSE_DIR/compose.npm.yml"
-  "$COMPOSE_DIR/compose.code-server.yml"
-  "$COMPOSE_DIR/compose.welcome.yml"
+    "$COMPOSE_DIR/compose.base.yml"
+    "$COMPOSE_DIR/compose.infra.yml"
+    "$COMPOSE_DIR/compose.gitea.yml"
+    "$COMPOSE_DIR/compose.npm.yml"
+    "$COMPOSE_DIR/compose.code-server.yml"
+    "$COMPOSE_DIR/compose.welcome.yml"
 )
 
 # 如果存在 override 文件则追加
 if [ -f "$COMPOSE_DIR/compose.override.yml" ]; then
-  COMPOSE_FILES+=("$COMPOSE_DIR/compose.override.yml")
+    COMPOSE_FILES+=("$COMPOSE_DIR/compose.override.yml")
 fi
 
 # =========================================================
@@ -38,11 +38,11 @@ fi
 # =========================================================
 
 compose() {
-  local args=()
-  for f in "${COMPOSE_FILES[@]}"; do
-    args+=(-f "$f")
-  done
-  command docker compose "${args[@]}" "$@"
+    local args=()
+    for f in "${COMPOSE_FILES[@]}"; do
+        args+=(-f "$f")
+    done
+    command docker compose "${args[@]}" "$@"
 }
 
 # =========================================================
@@ -54,25 +54,25 @@ GREEN='\033[32m'
 YELLOW='\033[33m'
 RESET='\033[0m'
 
-log()    { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
-info()   { echo -e "${GREEN}[OK]${RESET} $*"; }
-warn()   { echo -e "${YELLOW}[WARN]${RESET} $*"; }
-error()  { echo -e "${RED}[ERROR]${RESET} $*"; }
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+info() { echo -e "${GREEN}[OK]${RESET} $*"; }
+warn() { echo -e "${YELLOW}[WARN]${RESET} $*"; }
+error() { echo -e "${RED}[ERROR]${RESET} $*"; }
 
 # =========================================================
 # 环境变量
 # =========================================================
 
 load_env() {
-  local env_file="$PROJECT_DIR/.env"
-  if [ ! -f "$env_file" ]; then
-    error ".env not found at $env_file"
-    exit 1
-  fi
-  set -a
-  source "$env_file"
-  set +a
-  info "Environment loaded"
+    local env_file="$PROJECT_DIR/.env"
+    if [ ! -f "$env_file" ]; then
+        error ".env not found at $env_file"
+        exit 1
+    fi
+    set -a
+    source "$env_file"
+    set +a
+    info "Environment loaded"
 }
 
 # =========================================================
@@ -80,21 +80,21 @@ load_env() {
 # =========================================================
 
 check_docker() {
-  if ! command -v docker >/dev/null 2>&1; then
-    error "Docker not installed"
-    exit 1
-  fi
-  if ! docker info >/dev/null 2>&1; then
-    error "Docker daemon not running"
-    exit 1
-  fi
-  info "Docker OK"
+    if ! command -v docker > /dev/null 2>&1; then
+        error "Docker not installed"
+        exit 1
+    fi
+    if ! docker info > /dev/null 2>&1; then
+        error "Docker daemon not running"
+        exit 1
+    fi
+    info "Docker OK"
 }
 
 check_compose() {
-  if ! docker compose version >/dev/null 2>&1; then
-    error "docker compose plugin not available"
-    exit 1
-  fi
-  info "Docker Compose OK"
+    if ! docker compose version > /dev/null 2>&1; then
+        error "docker compose plugin not available"
+        exit 1
+    fi
+    info "Docker Compose OK"
 }
