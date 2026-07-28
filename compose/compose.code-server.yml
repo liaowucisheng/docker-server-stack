@@ -16,7 +16,7 @@ services:
       PASSWORD: ${CODE_SERVER_PASSWORD}
 
     # 避免root创建文件
-    user: "1000:1000"
+    user: "${PUID}:${PGID}"
 
     volumes:
       - ../appdata/code-server/config:/home/coder/.config
@@ -34,4 +34,4 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1024M
