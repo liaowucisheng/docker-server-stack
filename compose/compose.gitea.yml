@@ -16,27 +16,42 @@ services:
     networks:
       - backend_network
 
-    command: >
-      sh -c "
-      echo 'Waiting PostgreSQL...';
-      until pg_isready -h postgres -U ${POSTGRES_USER};
-      do sleep 2;
-      done;
-      echo 'Creating Gitea database...';
-      psql -h postgres -U ${POSTGRES_USER} \
-      -tc \"SELECT 1 FROM pg_database WHERE datname='${GITEA_DB_NAME}'\" \
-      | grep -q 1 || \
-      psql -h postgres -U ${POSTGRES_USER} \
-      -c \"CREATE DATABASE ${GITEA_DB_NAME}\";
-      psql -h postgres -U ${POSTGRES_USER} \
-      -tc \"SELECT 1 FROM pg_roles WHERE rolname='${GITEA_DB_USER}'\" \
-      | grep -q 1 || \
-      psql -h postgres -U ${POSTGRES_USER} \
-      -c \"CREATE USER ${GITEA_DB_USER} PASSWORD '${GITEA_DB_PASSWORD}'\";
-      psql -h postgres -U ${POSTGRES_USER} \
-      -c \"GRANT ALL PRIVILEGES ON DATABASE ${GITEA_DB_NAME} TO ${GITEA_DB_USER}\";
-      echo 'Gitea database ready';
-      "
+    # 注意：必须使用 literal 块（|）+ 列表形式传参。
+    # 旧写法用折叠标量（>）配合行尾 "\" 续行，YAML 会把换行折叠成空格，
+    # "\ " 退化成“转义空格”，psql 会收到 " -tc" 这样的错误参数，初始化静默失败。
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+
+        echo 'Waiting PostgreSQL...'
+        until pg_isready -h postgres -U "${POSTGRES_USER}"; do
+            sleep 2
+        done
+
+        echo 'Creating Gitea database...'
+        if ! psql -h postgres -U "${POSTGRES_USER}" -tAc \
+            "SELECT 1 FROM pg_database WHERE datname='${GITEA_DB_NAME}'" | grep -q 1; then
+            psql -h postgres -U "${POSTGRES_USER}" \
+                -c "CREATE DATABASE \"${GITEA_DB_NAME}\""
+        fi
+
+        if ! psql -h postgres -U "${POSTGRES_USER}" -tAc \
+            "SELECT 1 FROM pg_roles WHERE rolname='${GITEA_DB_USER}'" | grep -q 1; then
+            psql -h postgres -U "${POSTGRES_USER}" \
+                -c "CREATE USER \"${GITEA_DB_USER}\" PASSWORD '${GITEA_DB_PASSWORD}'"
+        fi
+
+        psql -h postgres -U "${POSTGRES_USER}" \
+            -c "GRANT ALL PRIVILEGES ON DATABASE \"${GITEA_DB_NAME}\" TO \"${GITEA_DB_USER}\""
+
+        # PostgreSQL 15 起 public schema 不再对 PUBLIC 默认授予 CREATE 权限，
+        # 必须显式授权，否则 Gitea 迁移会报 permission denied for schema public
+        psql -h postgres -U "${POSTGRES_USER}" -d "${GITEA_DB_NAME}" \
+            -c "GRANT ALL ON SCHEMA public TO \"${GITEA_DB_USER}\""
+
+        echo 'Gitea database ready'
 
     depends_on:
       postgres:
