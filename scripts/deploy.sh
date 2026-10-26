@@ -44,10 +44,28 @@ fi
 # 2. 获取变更文件列表
 # --------------------------------------------------
 
-CHANGED=$(git diff --name-only "$LAST_SHA".."$CURRENT_SHA" 2> /dev/null || true)
+FORCE_FULL_DEPLOY=false
+CHANGED=""
+
+# git diff 失败时不能当成“无变更”：例如 .state 里记录的 SHA 已被 gc 清理，
+# 或历史被强推覆盖。那样会永久跳过部署，所以这里降级为全量部署。
+if ! CHANGED=$(git diff --name-only "$LAST_SHA".."$CURRENT_SHA" 2> /dev/null); then
+    warn "git diff '$LAST_SHA..$CURRENT_SHA' failed — falling back to full deploy"
+    FORCE_FULL_DEPLOY=true
+    CHANGED=""
+fi
+
+if $FORCE_FULL_DEPLOY; then
+    log "Diff unavailable — full deploy"
+    ./scripts/update-all.sh
+    echo "$CURRENT_SHA" > "$LAST_SHA_FILE"
+    info "Deploy completed (full)"
+    exit 0
+fi
 
 if [ -z "$CHANGED" ]; then
     info "No file changes detected, skipping"
+    echo "$CURRENT_SHA" > "$LAST_SHA_FILE"
     exit 0
 fi
 
@@ -127,7 +145,13 @@ while IFS= read -r f; do
 done <<< "$CHANGED"
 
 # 去重并排序
-mapfile -t UNIQUE_SERVICES < <(printf "%s\n" "${SERVICES[@]}" | sort -u)
+# 注意：SERVICES 为空时 printf 仍会输出一个空行，mapfile 会得到一个内容为
+# 空字符串的元素，后面会被误判成“单服务更新”并调用 update-service.sh ""，
+# 该脚本直接 usage 退出，导致部署失败。所以这里显式判空。
+UNIQUE_SERVICES=()
+if [ ${#SERVICES[@]} -gt 0 ]; then
+    mapfile -t UNIQUE_SERVICES < <(printf "%s\n" "${SERVICES[@]}" | sort -u)
+fi
 
 # --------------------------------------------------
 # 6. 执行更新
