@@ -1,0 +1,3 @@
+# 补丁文件必须保持 LF：Windows 上 core.autocrlf=true 会把检出内容转成 CRLF，
+# 而 git am / patch 对 CRLF 补丁容易报 "patch does not apply"
+patches/*.patch text eol=lf

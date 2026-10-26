@@ -1,0 +1,94 @@
+From 6a8a0536128735414112dcd9a467233fc3e12ea5 Mon Sep 17 00:00:00 2001
+From: zhengjunjie2k <zhengjunjie2k@gmail.com>
+Date: Mon, 26 Oct 2026 17:46:29 +0800
+Subject: [PATCH 1/5] fix(compose): repair gitea-db-init script and grant
+ schema privileges
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+gitea-db-init 原用折叠标量（command: >）配合行尾续行符。YAML 会把换行折叠
+成空格，"\ " 于是退化成“转义空格”：实测 psql 收到 " -tc" 参数，管道和 ||
+也被粘进同一个单词，所有 SQL 都执行失败；而脚本最后一句 echo 仍返回 0，
+容器以 exit 0 结束，Gitea 随后因 database "giteadb" does not exist 崩溃。
+
+- 改为 literal 块（|）+ 列表形式传参，脚本按真实换行执行
+- 用 if ! psql ... | grep -q 1 取代 "psql | grep -q 1 || psql"，避免误判
+- CREATE DATABASE / CREATE USER 对标识符加双引号
+- 补 GRANT ALL ON SCHEMA public：PostgreSQL 15 起 public 不再默认给 PUBLIC
+  建表权限，缺这条 Gitea 迁移会报 permission denied for schema public
+---
+ compose/compose.gitea.yml | 57 ++++++++++++++++++++++++---------------
+ 1 file changed, 36 insertions(+), 21 deletions(-)
+
+diff --git a/compose/compose.gitea.yml b/compose/compose.gitea.yml
+index 95f2dcc..74c9289 100644
+--- a/compose/compose.gitea.yml
++++ b/compose/compose.gitea.yml
+@@ -16,27 +16,42 @@ services:
+     networks:
+       - backend_network
+ 
+-    command: >
+-      sh -c "
+-      echo 'Waiting PostgreSQL...';
+-      until pg_isready -h postgres -U ${POSTGRES_USER};
+-      do sleep 2;
+-      done;
+-      echo 'Creating Gitea database...';
+-      psql -h postgres -U ${POSTGRES_USER} \
+-      -tc \"SELECT 1 FROM pg_database WHERE datname='${GITEA_DB_NAME}'\" \
+-      | grep -q 1 || \
+-      psql -h postgres -U ${POSTGRES_USER} \
+-      -c \"CREATE DATABASE ${GITEA_DB_NAME}\";
+-      psql -h postgres -U ${POSTGRES_USER} \
+-      -tc \"SELECT 1 FROM pg_roles WHERE rolname='${GITEA_DB_USER}'\" \
+-      | grep -q 1 || \
+-      psql -h postgres -U ${POSTGRES_USER} \
+-      -c \"CREATE USER ${GITEA_DB_USER} PASSWORD '${GITEA_DB_PASSWORD}'\";
+-      psql -h postgres -U ${POSTGRES_USER} \
+-      -c \"GRANT ALL PRIVILEGES ON DATABASE ${GITEA_DB_NAME} TO ${GITEA_DB_USER}\";
+-      echo 'Gitea database ready';
+-      "
++    # 注意：必须使用 literal 块（|）+ 列表形式传参。
++    # 旧写法用折叠标量（>）配合行尾 "\" 续行，YAML 会把换行折叠成空格，
++    # "\ " 退化成“转义空格”，psql 会收到 " -tc" 这样的错误参数，初始化静默失败。
++    command:
++      - sh
++      - -c
++      - |
++        set -e
++
++        echo 'Waiting PostgreSQL...'
++        until pg_isready -h postgres -U "${POSTGRES_USER}"; do
++            sleep 2
++        done
++
++        echo 'Creating Gitea database...'
++        if ! psql -h postgres -U "${POSTGRES_USER}" -tAc \
++            "SELECT 1 FROM pg_database WHERE datname='${GITEA_DB_NAME}'" | grep -q 1; then
++            psql -h postgres -U "${POSTGRES_USER}" \
++                -c "CREATE DATABASE \"${GITEA_DB_NAME}\""
++        fi
++
++        if ! psql -h postgres -U "${POSTGRES_USER}" -tAc \
++            "SELECT 1 FROM pg_roles WHERE rolname='${GITEA_DB_USER}'" | grep -q 1; then
++            psql -h postgres -U "${POSTGRES_USER}" \
++                -c "CREATE USER \"${GITEA_DB_USER}\" PASSWORD '${GITEA_DB_PASSWORD}'"
++        fi
++
++        psql -h postgres -U "${POSTGRES_USER}" \
++            -c "GRANT ALL PRIVILEGES ON DATABASE \"${GITEA_DB_NAME}\" TO \"${GITEA_DB_USER}\""
++
++        # PostgreSQL 15 起 public schema 不再对 PUBLIC 默认授予 CREATE 权限，
++        # 必须显式授权，否则 Gitea 迁移会报 permission denied for schema public
++        psql -h postgres -U "${POSTGRES_USER}" -d "${GITEA_DB_NAME}" \
++            -c "GRANT ALL ON SCHEMA public TO \"${GITEA_DB_USER}\""
++
++        echo 'Gitea database ready'
+ 
+     depends_on:
+       postgres:
+-- 
+2.56.0.windows.3
+

@@ -1,0 +1,105 @@
+From 76a9e06c35908a210ae8f629f61221898ce9dd37 Mon Sep 17 00:00:00 2001
+From: zhengjunjie2k <zhengjunjie2k@gmail.com>
+Date: Mon, 26 Oct 2026 17:46:29 +0800
+Subject: [PATCH 2/5] fix(install): restore directory creation and fix
+ code-server ownership
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+create_directories() 里 "mkdir -p" 单独成行、后面的路径各自成行，等于把路径
+当命令执行。脚本是 set -euo pipefail，mkdir 因缺少操作数返回 1，install.sh
+在 "Creating directories..." 之后直接退出，目录、权限、拉镜像、启动全部不执行。
+
+- 恢复成一条 mkdir -p + 多个路径
+- 新增 fix_permissions()，按 PUID:PGID chown code-server 配置目录与工作区，
+  否则以非 root 用户运行的 code-server 容器写不进挂载目录
+- 非 root 执行时只告警并打印可手工执行的命令，不中断安装
+---
+ scripts/install.sh | 54 ++++++++++++++++++++++++++++++----------------
+ 1 file changed, 36 insertions(+), 18 deletions(-)
+
+diff --git a/scripts/install.sh b/scripts/install.sh
+index f4b7172..e6b0ee4 100644
+--- a/scripts/install.sh
++++ b/scripts/install.sh
+@@ -89,33 +89,49 @@ create_directories() {
+ 
+     log "Creating directories..."
+ 
+-    mkdir -p
++    mkdir -p \
++        "$PROJECT_DIR/appdata/postgres/data" \
++        "$PROJECT_DIR/appdata/gitea" \
++        "$PROJECT_DIR/appdata/npm/data" \
++        "$PROJECT_DIR/appdata/npm/letsencrypt" \
++        "$PROJECT_DIR/appdata/code-server/config" \
++        "$PROJECT_DIR/appdata/vaultwarden" \
++        "$PROJECT_DIR/data/workspace" \
++        "$PROJECT_DIR/data/backup/postgres" \
++        "$PROJECT_DIR/data/backup/gitea" \
++        "$PROJECT_DIR/data/backup/vaultwarden" \
++        "$PROJECT_DIR/welcome"
+ 
+-    "$PROJECT_DIR/appdata/postgres/data"
+-
+-    "$PROJECT_DIR/appdata/gitea"
+-
+-    "$PROJECT_DIR/appdata/npm/data"
+-
+-    "$PROJECT_DIR/appdata/npm/letsencrypt"
+-
+-    "$PROJECT_DIR/appdata/code-server/config"
++    log "Directory creation completed"
+ 
+-    "$PROJECT_DIR/appdata/vaultwarden"
++}
+ 
+-    "$PROJECT_DIR/data/workspace"
++# =========================================================
++# 修正挂载目录属主
++# =========================================================
+ 
+-    "$PROJECT_DIR/data/backup/postgres"
++fix_permissions() {
+ 
+-    "$PROJECT_DIR/data/backup/gitea"
++    # code-server 以 ${PUID}:${PGID} 运行，而上面的目录是 root 创建的，
++    # 不 chown 会导致容器内无法写入配置和工作区
++    if [ -z "${PUID:-}" ] || [ -z "${PGID:-}" ]; then
++        warn "PUID/PGID not set, skipping ownership fix"
++        return 0
++    fi
+ 
+-    "$PROJECT_DIR/data/backup/vaultwarden"
++    if [ "$(id -u)" -ne 0 ]; then
++        warn "not running as root, skipping ownership fix"
++        log "If code-server cannot write, run: chown -R $PUID:$PGID $PROJECT_DIR/appdata/code-server $PROJECT_DIR/data/workspace"
++        return 0
++    fi
+ 
+-    # welcome目录
++    log "Setting ownership for code-server directories..."
+ 
+-    mkdir -p "$PROJECT_DIR/welcome"
++    chown -R "$PUID:$PGID" \
++        "$PROJECT_DIR/appdata/code-server" \
++        "$PROJECT_DIR/data/workspace"
+ 
+-    log "Directory creation completed"
++    log "Ownership updated"
+ 
+ }
+ 
+@@ -231,6 +247,8 @@ main() {
+ 
+     create_directories
+ 
++    fix_permissions
++
+     check_welcome
+ 
+     permission
+-- 
+2.56.0.windows.3
+
