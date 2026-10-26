@@ -117,8 +117,9 @@ backup_gitea() {
     local filename="gitea-dump-${TIMESTAMP}.zip"
     local container_tmp_path="/tmp/${filename}"
 
-    # 在容器内指定绝对路径输出备份文件
-    docker exec gitea \
+    # 在容器内的临时目录执行（-w /tmp）：gitea dump 会在当前工作目录打包，
+    # 不在可写目录下执行会因权限问题失败（见官方文档 Docker 章节）
+    docker exec -w /tmp gitea \
         gitea dump \
         -c /data/gitea/conf/app.ini \
         -f "$container_tmp_path"
@@ -145,8 +146,9 @@ backup_vaultwarden() {
 
     mkdir -p "$target_dir"
 
-    # 加上 || true 避免 grep 找不到容器时管道退出导致 set -e 触发脚本中断
-    if ! docker ps -a --format '{{.Names}}' | grep -wq "vaultwarden" || true; then
+    # 注意：这里不能加 "|| true"。加上之后整个条件恒为真，
+    # 无论容器是否存在都会 return 0，导致 Vaultwarden 永远不会被备份。
+    if ! docker ps -a --format '{{.Names}}' | grep -wq "vaultwarden"; then
         log "Vaultwarden container not found, skip backup"
         return 0
     fi
