@@ -89,33 +89,49 @@ create_directories() {
 
     log "Creating directories..."
 
-    mkdir -p
-
-    "$PROJECT_DIR/appdata/postgres/data"
-
-    "$PROJECT_DIR/appdata/gitea"
-
-    "$PROJECT_DIR/appdata/npm/data"
-
-    "$PROJECT_DIR/appdata/npm/letsencrypt"
-
-    "$PROJECT_DIR/appdata/code-server/config"
-
-    "$PROJECT_DIR/appdata/vaultwarden"
-
-    "$PROJECT_DIR/data/workspace"
-
-    "$PROJECT_DIR/data/backup/postgres"
-
-    "$PROJECT_DIR/data/backup/gitea"
-
-    "$PROJECT_DIR/data/backup/vaultwarden"
-
-    # welcome目录
-
-    mkdir -p "$PROJECT_DIR/welcome"
+    mkdir -p \
+        "$PROJECT_DIR/appdata/postgres/data" \
+        "$PROJECT_DIR/appdata/gitea" \
+        "$PROJECT_DIR/appdata/npm/data" \
+        "$PROJECT_DIR/appdata/npm/letsencrypt" \
+        "$PROJECT_DIR/appdata/code-server/config" \
+        "$PROJECT_DIR/appdata/vaultwarden" \
+        "$PROJECT_DIR/data/workspace" \
+        "$PROJECT_DIR/data/backup/postgres" \
+        "$PROJECT_DIR/data/backup/gitea" \
+        "$PROJECT_DIR/data/backup/vaultwarden" \
+        "$PROJECT_DIR/welcome"
 
     log "Directory creation completed"
+
+}
+
+# =========================================================
+# 修正挂载目录属主
+# =========================================================
+
+fix_permissions() {
+
+    # code-server 以 ${PUID}:${PGID} 运行，而上面的目录是 root 创建的，
+    # 不 chown 会导致容器内无法写入配置和工作区
+    if [ -z "${PUID:-}" ] || [ -z "${PGID:-}" ]; then
+        warn "PUID/PGID not set, skipping ownership fix"
+        return 0
+    fi
+
+    if [ "$(id -u)" -ne 0 ]; then
+        warn "not running as root, skipping ownership fix"
+        log "If code-server cannot write, run: chown -R $PUID:$PGID $PROJECT_DIR/appdata/code-server $PROJECT_DIR/data/workspace"
+        return 0
+    fi
+
+    log "Setting ownership for code-server directories..."
+
+    chown -R "$PUID:$PGID" \
+        "$PROJECT_DIR/appdata/code-server" \
+        "$PROJECT_DIR/data/workspace"
+
+    log "Ownership updated"
 
 }
 
@@ -230,6 +246,8 @@ main() {
     check_env
 
     create_directories
+
+    fix_permissions
 
     check_welcome
 
